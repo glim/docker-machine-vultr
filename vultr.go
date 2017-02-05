@@ -21,6 +21,7 @@ import (
 type Driver struct {
 	*drivers.BaseDriver
 	APIKey            string
+	APIEndpoint       string
 	MachineID         string
 	PrivateIP         string
 	OSID              int
@@ -35,16 +36,18 @@ type Driver struct {
 	ScriptID          int
 	HasCustomScript   bool
 	UserDataFile      string
+	SnapshotID        string
 	client            *vultr.Client
 }
 
 const (
-	defaultOS         = 159
-	defaultRegion     = 1
-	defaultPlan       = 29
-	defaultSSHuser    = "root"
-	defaultROSVersion = "v0.5.0"
-	clientMaxRetries  = 5
+	defaultOS          = 159
+	defaultRegion      = 1
+	defaultPlan        = 29
+	defaultSSHuser     = "root"
+	defaultROSVersion  = "v0.5.0"
+	clientMaxRetries   = 5
+	defaultAPIEndpoint = ""
 )
 
 // GetCreateFlags registers the flags this driver adds to
@@ -55,6 +58,12 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			EnvVar: "VULTR_API_KEY",
 			Name:   "vultr-api-key",
 			Usage:  "Vultr API key",
+		},
+		mcnflag.StringFlag{
+			EnvVar: "VULTR_API_ENDPOINT",
+			Name:   "vultr-api-endpoint",
+			Usage:  "Vultr API endpoint",
+			Value:  defaultAPIEndpoint,
 		},
 		mcnflag.StringFlag{
 			EnvVar: "VULTR_SSH_USER",
@@ -116,6 +125,11 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			Name:   "vultr-userdata",
 			Usage:  "Path to file with Cloud-init User Data",
 		},
+		mcnflag.StringFlag{
+			EnvVar: "VULTR_SNAPSHOT",
+			Name:   "vultr-snapshot-id",
+			Usage:  "Snapshot ID",
+		},
 	}
 }
 
@@ -143,6 +157,7 @@ func (d *Driver) DriverName() string {
 
 func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
 	d.APIKey = flags.String("vultr-api-key")
+	d.APIEndpoint = flags.String("vultr-api-endpoint")
 	d.OSID = flags.Int("vultr-os-id")
 	d.ROSVersion = flags.String("vultr-ros-version")
 	d.RegionID = flags.Int("vultr-region-id")
@@ -153,6 +168,7 @@ func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
 	d.PrivateNetworking = flags.Bool("vultr-private-networking")
 	d.Backups = flags.Bool("vultr-backups")
 	d.UserDataFile = flags.String("vultr-userdata")
+	d.SnapshotID = flags.String("vultr-snapshot-id")
 	d.SwarmMaster = flags.Bool("swarm-master")
 	d.SwarmHost = flags.String("swarm-host")
 	d.SwarmDiscovery = flags.String("swarm-discovery")
@@ -179,6 +195,12 @@ func (d *Driver) PreCreateCheck() error {
 
 	if d.ScriptID != 0 && d.OSID != 159 {
 		return fmt.Errorf("Using PXE boot script requires 'Custom OS' (159)")
+	}
+
+	if d.SnapshotID != "" && d.OSID == defaultOS {
+		//	reassign OSID to Snapshot OSID 164, if OSID is the defaultOS.
+		//	And allow user to specify an OSID, in case there is an API update in the future.
+		d.OSID = 164
 	}
 
 	if d.SSHKeyID != "" {
@@ -262,6 +284,7 @@ func (d *Driver) Create() error {
 			AutoBackups:          d.Backups,
 			Script:               d.ScriptID,
 			UserData:             userdata,
+			Snapshot:             d.SnapshotID,
 			Hostname:             d.MachineName,
 			DontNotifyOnActivate: true,
 		})
@@ -279,7 +302,7 @@ func (d *Driver) Create() error {
 		d.IPAddress = machine.MainIP
 		d.PrivateIP = machine.InternalIP
 
-		if d.IPAddress != "" && d.IPAddress != "0" {
+		if d.IPAddress != "" && d.IPAddress != "0" && d.IPAddress != "0.0.0.0" {
 			break
 		}
 		log.Debug("IP address not yet available")
@@ -351,7 +374,7 @@ func (d *Driver) GetURL() (string, error) {
 }
 
 func (d *Driver) GetIP() (string, error) {
-	if d.IPAddress == "" || d.IPAddress == "0" {
+	if d.IPAddress == "" || d.IPAddress == "0" || d.IPAddress == "0.0.0.0" {
 		return "", fmt.Errorf("IP address is not set")
 	}
 
@@ -467,7 +490,11 @@ func (d *Driver) Kill() error {
 
 func (d *Driver) getClient() *vultr.Client {
 	if d.client == nil {
-		d.client = vultr.NewClient(d.APIKey, &vultr.Options{MaxRetries: clientMaxRetries})
+		opts := &vultr.Options{
+			MaxRetries: clientMaxRetries,
+			Endpoint:   d.APIEndpoint,
+		}
+		d.client = vultr.NewClient(d.APIKey, opts)
 	}
 
 	return d.client
