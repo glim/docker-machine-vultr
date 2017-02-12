@@ -49,7 +49,8 @@ Command line flags:
  - `--vultr-plan-id`: Plan to use for this VPS (VPSPLANID). See [available Plan IDs](https://www.vultr.com/api/#plans_plan_list).
  - `--vultr-os-id`: Operating system ID to use (OSID). See [available OS IDs](https://www.vultr.com/api/#os_os_list).
  - `--vultr-ros-version`: RancherOS version to use if an OSID was not specified (e.g. 'v0.6.0', 'latest').
- - `--vultr-pxe-script`: PXE boot script ID. Requires the 'custom OS' ('--vultr-os-id=159')
+ - `--vultr-pxe-script`: PXE script ID. Requires the 'Custom OS' ('--vultr-os-id=159')
+ - `--vultr-boot-script`: Boot script ID. Mutually exclusive of '--vultr-pxe-script'.
  - `--vultr-ssh-key-id`: Use an existing SSH key in your Vultr account instead of generating a new one.
  - `--vultr-ipv6`: Enable IPv6 support for the VPS.
  - `--vultr-private-networking`: Enable private networking support for the VPS.
@@ -59,7 +60,7 @@ Command line flags:
  - `--vultr-api-endpoint`: Override default Vultr API endpoint URL.
 
 If the OS ID is not specified, [RancherOS](http://rancher.com/rancher-os/) will be used as operating system for the instance.
-In that case the SSH user is set to `rancher`. You can select a specific RancherOS version by specifying the `--vultr-ros-version` flag.
+You can select a specific RancherOS version by specifying the `--vultr-ros-version` flag.
 
 ### PXE deployment
 You can boot a custom OS using a PXE boot script that you created in your Vultr account panel by passing it's ID with the `--vultr-pxe-script` flag and setting `--vultr-os-id` to `159`.
@@ -76,6 +77,7 @@ The operating system must support cloud-init and be configured to use the `ec2` 
 | `--vultr-os-id`                 | `VULTR_OS`                   | -                           |
 | `--vultr-ros-version`           | `VULTR_ROS_VERSION`          | v0.7.1                      |
 | `--vultr-pxe-script`            | `VULTR_PXE_SCRIPT`           | -                           |
+| `--vultr-boot-script`           | `VULTR_BOOT_SCRIPT`          | -                           |
 | `--vultr-ssh-key-id`            | `VULTR_SSH_KEY`              | -                           |
 | `--vultr-ipv6`                  | `VULTR_IPV6`                 | `false`                     |
 | `--vultr-private-networking`    | `VULTR_PRIVATE_NETWORKING`   | `false`                     |
